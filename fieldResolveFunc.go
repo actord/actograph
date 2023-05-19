@@ -1,4 +1,4 @@
-package graphscm
+package actograph
 
 import (
 	"github.com/graphql-go/graphql"
@@ -6,7 +6,7 @@ import (
 	"github.com/actord/actograph/directive"
 )
 
-func (scm *GraphScm) getFieldResolveFunc(directives []directive.Directive) graphql.FieldResolveFn {
+func (agh *Actograph) getFieldResolveFunc(directives []directive.Directive) graphql.FieldResolveFn {
 	return func(p graphql.ResolveParams) (interface{}, error) {
 		currentFieldName := p.Info.FieldName
 		source := p.Source
@@ -23,7 +23,7 @@ func (scm *GraphScm) getFieldResolveFunc(directives []directive.Directive) graph
 
 		// apply directives
 		var err error
-		resolvedValue, ctx, err = scm.executeDirectives(ctx, source, resolvedValue, args, directives)
+		resolvedValue, ctx, err = agh.executeDirectives(ctx, source, resolvedValue, args, directives)
 
 		return resolvedValue, err
 	}

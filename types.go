@@ -1,4 +1,4 @@
-package graphscm
+package actograph
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package graphscm
+package actograph
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 
 var hardcodedDirectives = []string{"enumPrivacy", "enumVal"}
 
-type GraphScm struct {
+type Actograph struct {
 	directiveDeclarations map[string]directive.Definition
 
 	// fill definitions while parse "schema.graphql" file
@@ -34,8 +34,8 @@ type GraphScm struct {
 	lazySchemaDirectives []directive.Directive
 }
 
-func NewGraphScm() *GraphScm {
-	return &GraphScm{
+func NewActograph() *Actograph {
+	return &Actograph{
 		directiveDeclarations: map[string]directive.Definition{},
 
 		directiveDefinitions:   map[string]*ast.DirectiveDefinition{},
@@ -50,31 +50,31 @@ func NewGraphScm() *GraphScm {
 	}
 }
 
-func NewGraphScmBytes(graphqlFile []byte) (*GraphScm, error) {
-	gscm := NewGraphScm()
+func NewActographBytes(graphqlFile []byte) (*Actograph, error) {
+	gscm := NewActograph()
 	return gscm, gscm.Parse(graphqlFile)
 }
 
-func (scm *GraphScm) RegisterDirective(dir directive.Definition) error {
-	if _, has := scm.directiveDeclarations[dir.Name()]; has {
+func (agh *Actograph) RegisterDirective(dir directive.Definition) error {
+	if _, has := agh.directiveDeclarations[dir.Name()]; has {
 		return fmt.Errorf("directive @%s already registered", dir.Name())
 	}
 
-	//_, has := scm.directiveDefinitions[dir.Name()]
+	//_, has := agh.directiveDefinitions[dir.Name()]
 	//if !has {
 	//	return fmt.Errorf("directive @%s is not defined in schema", dir.Name())
 	//}
 
 	// TODO: validate declared arguments, maybe
 
-	scm.directiveDeclarations[dir.Name()] = dir
+	agh.directiveDeclarations[dir.Name()] = dir
 	return nil
 }
 
-func (scm *GraphScm) RegisterDirectives(dirs ...directive.Definition) error {
+func (agh *Actograph) RegisterDirectives(dirs ...directive.Definition) error {
 	var err error
 	for i, dir := range dirs {
-		err = scm.RegisterDirective(dir)
+		err = agh.RegisterDirective(dir)
 		if err != nil {
 			return fmt.Errorf("while registering directives at index '%d': %v", i, err)
 		}
@@ -82,20 +82,20 @@ func (scm *GraphScm) RegisterDirectives(dirs ...directive.Definition) error {
 	return nil
 }
 
-func (scm *GraphScm) ConstructDirective(dir *ast.Directive, node ast.Node) (directive.Directive, error) {
+func (agh *Actograph) ConstructDirective(dir *ast.Directive, node ast.Node) (directive.Directive, error) {
 	name := dir.Name.Value
-	declaration, has := scm.directiveDeclarations[name]
+	declaration, has := agh.directiveDeclarations[name]
 	if !has {
 		return nil, fmt.Errorf("undefined declaration for directive @%s", name)
 	}
 
-	dirDefinition := scm.directiveDefinitions[name]
-	arguments := scm.makeDirectiveArguments(dir, dirDefinition)
+	dirDefinition := agh.directiveDefinitions[name]
+	arguments := agh.makeDirectiveArguments(dir, dirDefinition)
 
 	return declaration.Construct(arguments, node)
 }
 
-func (scm *GraphScm) makeDirectiveArguments(dir *ast.Directive, dirDefinition *ast.DirectiveDefinition) directive.Arguments {
+func (agh *Actograph) makeDirectiveArguments(dir *ast.Directive, dirDefinition *ast.DirectiveDefinition) directive.Arguments {
 	arguments := directive.Arguments{}
 
 	for _, argDefinition := range dirDefinition.Arguments {
@@ -121,7 +121,7 @@ func getEnumValue(enum ast.Value) ast.Value {
 	return enum
 }
 
-func (scm *GraphScm) Parse(graphqlFile []byte) error {
+func (agh *Actograph) Parse(graphqlFile []byte) error {
 	astDoc, err := parser.Parse(parser.ParseParams{
 		Source: &source.Source{
 			Body: graphqlFile,
@@ -135,19 +135,19 @@ func (scm *GraphScm) Parse(graphqlFile []byte) error {
 		switch node.GetKind() {
 		case "DirectiveDefinition":
 			n := node.(*ast.DirectiveDefinition)
-			scm.addDirective(n)
+			agh.addDirective(n)
 		case "ObjectDefinition":
 			n := node.(*ast.ObjectDefinition)
-			scm.addObject(n)
+			agh.addObject(n)
 		case "InputObjectDefinition":
 			n := node.(*ast.InputObjectDefinition)
-			scm.addInputObject(n)
+			agh.addInputObject(n)
 		case "SchemaDefinition":
 			n := node.(*ast.SchemaDefinition)
-			scm.addSchema(n)
+			agh.addSchema(n)
 		case "EnumDefinition":
 			n := node.(*ast.EnumDefinition)
-			scm.addEnum(n)
+			agh.addEnum(n)
 
 		default:
 			panic(fmt.Errorf("unknown node kind: %s", node.GetKind()))
@@ -157,31 +157,31 @@ func (scm *GraphScm) Parse(graphqlFile []byte) error {
 	return nil
 }
 
-func (scm *GraphScm) Validate() error {
+func (agh *Actograph) Validate() error {
 	// when schema created - validation already passed
-	if scm.lazySchema != nil {
+	if agh.lazySchema != nil {
 		return nil
 	}
-	_, err := scm.makeSchema()
+	_, err := agh.makeSchema()
 	return err
 }
 
-func (scm *GraphScm) Schema() (graphql.Schema, error) {
-	if scm.lazySchema != nil {
-		return *scm.lazySchema, nil
+func (agh *Actograph) Schema() (graphql.Schema, error) {
+	if agh.lazySchema != nil {
+		return *agh.lazySchema, nil
 	}
-	schema, err := scm.makeSchema()
+	schema, err := agh.makeSchema()
 	if err != nil {
 		return graphql.Schema{}, err
 	}
-	scm.lazySchema = &schema
+	agh.lazySchema = &schema
 	return schema, nil
 }
 
-func (scm *GraphScm) makeSchema() (graphql.Schema, error) {
+func (agh *Actograph) makeSchema() (graphql.Schema, error) {
 	// check is all declared directions are defined
-	for directiveDefinitionName := range scm.directiveDefinitions {
-		if _, has := scm.directiveDeclarations[directiveDefinitionName]; !has {
+	for directiveDefinitionName := range agh.directiveDefinitions {
+		if _, has := agh.directiveDeclarations[directiveDefinitionName]; !has {
 			hasHardcoded := false
 			for _, hardcodedDirective := range hardcodedDirectives {
 				if hardcodedDirective == directiveDefinitionName {
@@ -197,21 +197,21 @@ func (scm *GraphScm) makeSchema() (graphql.Schema, error) {
 	}
 
 	// make lazySchemaDirectives
-	scm.lazySchemaDirectives = make([]directive.Directive, len(scm.schema.Directives))
-	for i, dir := range scm.schema.Directives {
+	agh.lazySchemaDirectives = make([]directive.Directive, len(agh.schema.Directives))
+	for i, dir := range agh.schema.Directives {
 		var err error
-		scm.lazySchemaDirectives[i], err = scm.ConstructDirective(dir, scm.schema)
+		agh.lazySchemaDirectives[i], err = agh.ConstructDirective(dir, agh.schema)
 		if err != nil {
 			log.Panicf("error when contructing directive: %v", err)
 		}
 	}
 
 	gconf := graphql.SchemaConfig{}
-	scm.makeEmptyObjects()
-	scm.fillCachedObjectsWithFields()
+	agh.makeEmptyObjects()
+	agh.fillCachedObjectsWithFields()
 
 	var queryTypename, mutationTypename string
-	for _, ot := range scm.schema.OperationTypes {
+	for _, ot := range agh.schema.OperationTypes {
 		switch ot.Operation {
 		case "query":
 			queryTypename = ot.Type.Name.Value
@@ -223,7 +223,7 @@ func (scm *GraphScm) makeSchema() (graphql.Schema, error) {
 	}
 
 	if queryTypename != "" {
-		queryType, has := scm.objects[queryTypename]
+		queryType, has := agh.objects[queryTypename]
 		if !has {
 			panic(fmt.Errorf("not found object declared as schema.query: %s", queryTypename))
 		}
@@ -231,7 +231,7 @@ func (scm *GraphScm) makeSchema() (graphql.Schema, error) {
 	}
 
 	if mutationTypename != "" {
-		mutationType, has := scm.objects[mutationTypename]
+		mutationType, has := agh.objects[mutationTypename]
 		if !has {
 			panic(fmt.Errorf("not found object declared as schema.query: %s", mutationTypename))
 		}
@@ -243,8 +243,8 @@ func (scm *GraphScm) makeSchema() (graphql.Schema, error) {
 	return graphql.NewSchema(gconf)
 }
 
-func (scm *GraphScm) Do(request RequestQuery) (*Result, error) {
-	schema, err := scm.Schema()
+func (agh *Actograph) Do(request RequestQuery) (*Result, error) {
+	schema, err := agh.Schema()
 	if err != nil {
 		return nil, fmt.Errorf("when taking schema: %v", err)
 	}
@@ -262,7 +262,7 @@ func (scm *GraphScm) Do(request RequestQuery) (*Result, error) {
 	}
 
 	var resolvedValue interface{}
-	resolvedValue, ctx, err = scm.executeDirectives(ctx, rootObject, rootObject, map[string]interface{}{}, scm.lazySchemaDirectives)
+	resolvedValue, ctx, err = agh.executeDirectives(ctx, rootObject, rootObject, map[string]interface{}{}, agh.lazySchemaDirectives)
 	// schema directives should return map[string]interface{}
 	if resolvedValueMap, ok := resolvedValue.(map[string]interface{}); ok {
 		rootObject = resolvedValueMap
@@ -290,23 +290,23 @@ func (scm *GraphScm) Do(request RequestQuery) (*Result, error) {
 	}, nil
 }
 
-func (scm *GraphScm) fillCachedObjectsWithFields() {
-	for objName, objDefinition := range scm.objectDefinitions {
+func (agh *Actograph) fillCachedObjectsWithFields() {
+	for objName, objDefinition := range agh.objectDefinitions {
 		for _, fieldDefinition := range objDefinition.Fields {
 			fieldName := fieldDefinition.Name.Value
-			fieldConfig := scm.makeField(fieldDefinition)
-			scm.objects[objName].AddFieldConfig(fieldName, fieldConfig)
+			fieldConfig := agh.makeField(fieldDefinition)
+			agh.objects[objName].AddFieldConfig(fieldName, fieldConfig)
 		}
 	}
 }
 
-func (scm *GraphScm) makeField(fieldDefinition *ast.FieldDefinition) *graphql.Field {
+func (agh *Actograph) makeField(fieldDefinition *ast.FieldDefinition) *graphql.Field {
 	var args graphql.FieldConfigArgument
 	if len(fieldDefinition.Arguments) > 0 {
 		args = graphql.FieldConfigArgument{}
 		for _, argDefinition := range fieldDefinition.Arguments {
 			name := argDefinition.Name.Value
-			argType := scm.getType(argDefinition.Type)
+			argType := agh.getType(argDefinition.Type)
 			// TODO: maybe we should check as argType is scalar or inputObject, because objects is not allowed as arguments
 			var defaultValue interface{}
 			if argDefinition.DefaultValue != nil {
@@ -341,9 +341,9 @@ func (scm *GraphScm) makeField(fieldDefinition *ast.FieldDefinition) *graphql.Fi
 		for _, arg := range directiveUsageDefinition.Arguments {
 			args[arg.Name.Value] = arg.Value
 		}
-		directiveDefinition := scm.directiveDefinitions[name]
-		dirArguments := scm.makeDirectiveArguments(directiveUsageDefinition, directiveDefinition)
-		directiveExecutable, err := scm.directiveDeclarations[name].Construct(dirArguments, fieldDefinition)
+		directiveDefinition := agh.directiveDefinitions[name]
+		dirArguments := agh.makeDirectiveArguments(directiveUsageDefinition, directiveDefinition)
+		directiveExecutable, err := agh.directiveDeclarations[name].Construct(dirArguments, fieldDefinition)
 		if err != nil {
 			panic(fmt.Errorf("cant construct directive usage for field '%s' and @%s : %v", fieldDefinition.Name.Value, name, err))
 		}
@@ -352,10 +352,10 @@ func (scm *GraphScm) makeField(fieldDefinition *ast.FieldDefinition) *graphql.Fi
 
 	f := &graphql.Field{
 		Name:              fieldDefinition.Name.Value,
-		Type:              scm.getType(fieldDefinition.Type),
+		Type:              agh.getType(fieldDefinition.Type),
 		Args:              args,
-		Resolve:           scm.getFieldResolveFunc(directiveExecutables),
-		Subscribe:         scm.getFieldSubscribeFunc(),
+		Resolve:           agh.getFieldResolveFunc(directiveExecutables),
+		Subscribe:         agh.getFieldSubscribeFunc(),
 		DeprecationReason: deprecationReason,
 		Description:       description,
 	}
@@ -363,13 +363,13 @@ func (scm *GraphScm) makeField(fieldDefinition *ast.FieldDefinition) *graphql.Fi
 	return f
 }
 
-func (scm *GraphScm) getType(typeDefinition ast.Type) graphql.Type {
+func (agh *Actograph) getType(typeDefinition ast.Type) graphql.Type {
 	// unwrap if necessary
 	switch typeDefinition.GetKind() {
 	case "NonNull":
-		return graphql.NewNonNull(scm.getType(typeDefinition.(*ast.NonNull).Type))
+		return graphql.NewNonNull(agh.getType(typeDefinition.(*ast.NonNull).Type))
 	case "List":
-		return graphql.NewList(scm.getType(typeDefinition.(*ast.List).Type))
+		return graphql.NewList(agh.getType(typeDefinition.(*ast.List).Type))
 	case "Named":
 		// Named are main case, so we expect to work with Named kind after switch
 	default:
@@ -391,11 +391,11 @@ func (scm *GraphScm) getType(typeDefinition ast.Type) graphql.Type {
 		return scalar
 	}
 
-	if object, isObject := scm.objects[name]; isObject {
+	if object, isObject := agh.objects[name]; isObject {
 		return object
 	}
 
-	if inputObject, isInputObject := scm.inputObjects[name]; isInputObject {
+	if inputObject, isInputObject := agh.inputObjects[name]; isInputObject {
 		return inputObject
 	}
 
@@ -404,8 +404,8 @@ func (scm *GraphScm) getType(typeDefinition ast.Type) graphql.Type {
 
 // makeEmptyObjects just will create references for necessary objects before we create types and fields for avoiding
 // deadlock when create object that depends on object that depends on objects we're currently trying to create
-func (scm *GraphScm) makeEmptyObjects() {
-	for name, objDefinition := range scm.objectDefinitions {
+func (agh *Actograph) makeEmptyObjects() {
+	for name, objDefinition := range agh.objectDefinitions {
 		var description string
 		if objDefinition.Description != nil {
 			description = objDefinition.Description.Value
@@ -416,10 +416,10 @@ func (scm *GraphScm) makeEmptyObjects() {
 			Fields:      graphql.Fields{},
 			Description: description,
 		})
-		scm.objects[name] = obj
+		agh.objects[name] = obj
 	}
 
-	for name, objDefinition := range scm.inputObjectDefinitions {
+	for name, objDefinition := range agh.inputObjectDefinitions {
 		var description string
 		if objDefinition.Description != nil {
 			description = objDefinition.Description.Value
@@ -429,44 +429,44 @@ func (scm *GraphScm) makeEmptyObjects() {
 			Fields:      graphql.InputObjectConfigFieldMap{},
 			Description: description,
 		})
-		scm.inputObjects[name] = obj
+		agh.inputObjects[name] = obj
 	}
 }
 
-func (scm *GraphScm) addDirective(n *ast.DirectiveDefinition) {
+func (agh *Actograph) addDirective(n *ast.DirectiveDefinition) {
 	name := n.Name.Value
-	if _, has := scm.directiveDefinitions[name]; has {
+	if _, has := agh.directiveDefinitions[name]; has {
 		log.Panicf("directive with name '%s' already defined", name)
 	}
-	scm.directiveDefinitions[name] = n
+	agh.directiveDefinitions[name] = n
 }
 
-func (scm *GraphScm) addObject(n *ast.ObjectDefinition) {
+func (agh *Actograph) addObject(n *ast.ObjectDefinition) {
 	name := n.Name.Value
-	if _, has := scm.objectDefinitions[name]; has {
+	if _, has := agh.objectDefinitions[name]; has {
 		log.Panicf("object with name '%s' already defined", name)
 	}
-	scm.objectDefinitions[name] = n
+	agh.objectDefinitions[name] = n
 }
 
-func (scm *GraphScm) addInputObject(n *ast.InputObjectDefinition) {
+func (agh *Actograph) addInputObject(n *ast.InputObjectDefinition) {
 	name := n.Name.Value
-	if _, has := scm.inputObjectDefinitions[name]; has {
+	if _, has := agh.inputObjectDefinitions[name]; has {
 		log.Panicf("input object with name '%s' already defined", name)
 	}
-	scm.inputObjectDefinitions[name] = n
+	agh.inputObjectDefinitions[name] = n
 }
 
-func (scm *GraphScm) addSchema(node *ast.SchemaDefinition) {
-	if scm.schema != nil {
+func (agh *Actograph) addSchema(node *ast.SchemaDefinition) {
+	if agh.schema != nil {
 		panic("schema already defined")
 	}
-	scm.schema = node
+	agh.schema = node
 }
 
-func (scm *GraphScm) addEnum(node *ast.EnumDefinition) {
+func (agh *Actograph) addEnum(node *ast.EnumDefinition) {
 	name := node.Name.Value
-	if _, has := scm.enums[name]; has {
+	if _, has := agh.enums[name]; has {
 		panic(fmt.Errorf("enum with name '%s' already defined", name))
 	}
 	allowInBackend := false
@@ -509,10 +509,10 @@ func (scm *GraphScm) addEnum(node *ast.EnumDefinition) {
 		enumKeyToVal[key] = val
 	}
 
-	scm.enums[name] = enumKeyToVal
+	agh.enums[name] = enumKeyToVal
 }
 
-func (scm *GraphScm) executeDirectives(
+func (agh *Actograph) executeDirectives(
 	ctx context.Context,
 	source interface{},
 	resolvedValue interface{},

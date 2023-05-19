@@ -1,4 +1,4 @@
-package graphscm_test
+package actograph_test
 
 import (
 	"encoding/json"
@@ -36,7 +36,7 @@ func TestSimpleWorkflow(t *testing.T) {
 	}
 
 	// we can safely ignore error, because its schema validation error only
-	result, _ := gscm.Do(graphscm.RequestQuery{
+	result, _ := gscm.Do(actograph.RequestQuery{
 		RequestString: `query Test { hello }`,
 	})
 
@@ -56,7 +56,7 @@ func TestContextWorkflow(t *testing.T) {
 	}
 
 	// we can safely ignore error, because its schema validation error only
-	result, _ := gscm.Do(graphscm.RequestQuery{
+	result, _ := gscm.Do(actograph.RequestQuery{
 		RequestString: `query Test {
 			test_string
 			test_root
@@ -96,9 +96,9 @@ func TestContextWorkflow(t *testing.T) {
 
 }
 
-func getGQLSchema(filename string) (*graphscm.GraphScm, error) {
+func getGQLSchema(filename string) (*actograph.Actograph, error) {
 	gqlSchemaData, err := joinFiles(filename, exampleDirectives)
-	gscm, err := graphscm.NewGraphScmBytes(gqlSchemaData)
+	gscm, err := actograph.NewActographBytes(gqlSchemaData)
 	if err != nil {
 		return nil, fmt.Errorf("when parse file: %v", err)
 	}

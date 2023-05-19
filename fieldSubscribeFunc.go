@@ -1,4 +1,4 @@
-package graphscm
+package actograph
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
-func (scm *GraphScm) getFieldSubscribeFunc() graphql.FieldResolveFn {
+func (agh *Actograph) getFieldSubscribeFunc() graphql.FieldResolveFn {
 	return func(p graphql.ResolveParams) (interface{}, error) {
 		return nil, errors.New("subscription is not implemented yet")
 	}
