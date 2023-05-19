@@ -3,9 +3,7 @@ package actograph_test
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"os"
 	"testing"
 
 	"github.com/actord/actograph"
@@ -97,13 +95,13 @@ func TestContextWorkflow(t *testing.T) {
 }
 
 func getGQLSchema(filename string) (*actograph.Actograph, error) {
-	gqlSchemaData, err := joinFiles(filename, exampleDirectives)
-	gscm, err := actograph.NewActographBytes(gqlSchemaData)
+	agh, err := actograph.NewActographFiles(filename, exampleDirectives)
 	if err != nil {
 		return nil, fmt.Errorf("when parse file: %v", err)
 	}
+
 	// RegisterDirectives before parse
-	if err := gscm.RegisterDirectives(
+	if err := agh.RegisterDirectives(
 		directive.NewDirectiveDefinition("resolveString", directives.NewDirectiveResolveString),
 		directive.NewDirectiveDefinition("setContext", directives.NewDirectiveSetContext),
 		directive.NewDirectiveDefinition("getContext", directives.NewDirectiveGetContext),
@@ -111,21 +109,8 @@ func getGQLSchema(filename string) (*actograph.Actograph, error) {
 		return nil, fmt.Errorf("when registering directives: %v", err)
 	}
 
-	if err := gscm.Validate(); err != nil {
+	if err := agh.Validate(); err != nil {
 		return nil, fmt.Errorf("when validating schema: %v", err)
 	}
-	return gscm, nil
-}
-
-func joinFiles(filenames ...string) ([]byte, error) {
-	files := make([]io.Reader, len(filenames))
-	for i, filename := range filenames {
-		f, err := os.Open(filename)
-		if err != nil {
-			return nil, fmt.Errorf("when reading schema in file %s: %v", filename, err)
-		}
-		files[i] = f
-	}
-
-	return io.ReadAll(io.MultiReader(files...))
+	return agh, nil
 }

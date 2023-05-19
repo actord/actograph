@@ -34,27 +34,6 @@ type Actograph struct {
 	lazySchemaDirectives []directive.Directive
 }
 
-func NewActograph() *Actograph {
-	return &Actograph{
-		directiveDeclarations: map[string]directive.Definition{},
-
-		directiveDefinitions:   map[string]*ast.DirectiveDefinition{},
-		objectDefinitions:      map[string]*ast.ObjectDefinition{},
-		inputObjectDefinitions: map[string]*ast.InputObjectDefinition{},
-		enums:                  map[string]map[string]string{},
-
-		objects:      map[string]*graphql.Object{},
-		inputObjects: map[string]*graphql.InputObject{},
-
-		lazySchemaDirectives: []directive.Directive{},
-	}
-}
-
-func NewActographBytes(graphqlFile []byte) (*Actograph, error) {
-	gscm := NewActograph()
-	return gscm, gscm.Parse(graphqlFile)
-}
-
 func (agh *Actograph) RegisterDirective(dir directive.Definition) error {
 	if _, has := agh.directiveDeclarations[dir.Name()]; has {
 		return fmt.Errorf("directive @%s already registered", dir.Name())
@@ -111,14 +90,6 @@ func (agh *Actograph) makeDirectiveArguments(dir *ast.Directive, dirDefinition *
 	}
 
 	return arguments
-}
-
-func getEnumValue(enum ast.Value) ast.Value {
-	if enum.GetKind() != "EnumValue" {
-		panic("this is not EnumValue")
-	}
-	//enum.
-	return enum
 }
 
 func (agh *Actograph) Parse(graphqlFile []byte) error {
@@ -333,7 +304,6 @@ func (agh *Actograph) makeField(fieldDefinition *ast.FieldDefinition) *graphql.F
 	var deprecationReason string
 	// TODO: @deprecated directive
 
-	//TODO``
 	directiveExecutables := make([]directive.Directive, len(fieldDefinition.Directives))
 	for i, directiveUsageDefinition := range fieldDefinition.Directives {
 		name := directiveUsageDefinition.Name.Value
