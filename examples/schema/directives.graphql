@@ -1,0 +1,25 @@
+directive @resolveString(
+    val: String!
+) on FIELD_DEFINITION | ENUM_VALUE
+
+directive @setContext(
+    key: String!
+    val: String!
+    valType: SetContextValueType! = STRING
+) on SCHEMA | FIELD_DEFINITION
+
+enum SetContextValueType @enumPrivacy(backend: true) {
+    STRING
+    ARG_KEY
+    SOURCE_KEY
+}
+
+directive @getContext(
+    key: String!
+) on FIELD_DEFINITION
+
+# hardcoded directive :)
+directive @enumPrivacy(
+    backend: Boolean,
+    frontend: Boolean,
+) on ENUM

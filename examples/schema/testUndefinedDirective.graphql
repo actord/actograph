@@ -1,0 +1,9 @@
+directive @ThisIsUndefinedDirective on FIELD_DEFINITION
+
+schema {
+    query: Query
+}
+
+type Query {
+    hello: String!
+}

@@ -1,0 +1,19 @@
+schema
+@setContext(key: "test_string", val: "this is @setContext string")
+@setContext(key: "from_source", val: "key_in_root_obj", valType: SOURCE_KEY)
+{
+    query: Query
+}
+
+type Query {
+    test_string: String!  @getContext(key: "test_string")
+
+    test_root: String!  @getContext(key: "from_source")
+
+    test_args(arg_key: String!): String!
+        @setContext(key: "set_on_field_from_arg", val: "arg_key", valType: ARG_KEY)
+        @getContext(key: "set_on_field_from_arg")
+
+    global_set_context: String  # should be null, because of per-field @setContext
+        @getContext(key: "set_on_field_from_arg")
+}
