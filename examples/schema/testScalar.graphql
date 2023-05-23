@@ -1,0 +1,13 @@
+scalar DoubleString
+
+schema {
+    query: Query
+}
+
+type Query {
+    serializeValue: DoubleString!
+        @resolveString(val: "this is resolved string!")
+
+    parse(arg: DoubleString!): String!
+        @resolveArg(argName: "arg")
+}

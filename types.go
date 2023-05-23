@@ -2,6 +2,7 @@ package actograph
 
 import (
 	"context"
+	"github.com/graphql-go/graphql/language/ast"
 
 	"github.com/graphql-go/graphql/gqlerrors"
 )
@@ -33,4 +34,28 @@ type Result struct {
 	Data       interface{}                `json:"data"`
 	Errors     []gqlerrors.FormattedError `json:"errors,omitempty"`
 	Extensions map[string]interface{}     `json:"extensions,omitempty"`
+}
+
+// SerializeFn is a function type for serializing a GraphQLScalar type value
+type SerializeFn func(value interface{}) interface{}
+
+// ParseValueFn is a function type for parsing the value of a GraphQLScalar type
+type ParseValueFn func(value interface{}) interface{}
+
+// ParseLiteralFn is a function type for parsing the literal value of a GraphQLScalar type
+type ParseLiteralFn func(valueAST ast.Value) interface{}
+
+// ScalarConfig options for creating a new GraphQLScalar
+type ScalarConfig struct {
+	Name         string
+	Description  string
+	Serialize    SerializeFn
+	ParseValue   ParseValueFn
+	ParseLiteral ParseLiteralFn
+}
+
+type ScalarDefinition struct {
+	Name        string
+	Description string
+	// TODO: Directives
 }

@@ -3,6 +3,7 @@ package actograph_test
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/actord/actograph/examples/scalars"
 	"log"
 	"testing"
 
@@ -15,6 +16,7 @@ const exampleDirectives = "./examples/schema/directives.graphql"
 const simpleSchema = "./examples/schema/simple.graphql"
 const withUndefinedDirectiveSchema = "./examples/schema/testUndefinedDirective.graphql"
 const testContextSchema = "./examples/schema/testContext.graphql"
+const testScalarSchema = "./examples/schema/testScalar.graphql"
 
 // Test todo:
 //  - check is Enum definition without @enumPrivacy directive fired error
@@ -94,6 +96,49 @@ func TestContextWorkflow(t *testing.T) {
 
 }
 
+func TestScalar(t *testing.T) {
+	gscm, err := getGQLSchema(testScalarSchema)
+	if err != nil {
+		t.Fatalf("error when creating schema: %v", err)
+	}
+
+	// we can safely ignore error, because its schema validation error only
+	result, _ := gscm.Do(actograph.RequestQuery{
+		RequestString: `query Test($val: DoubleString!) {
+			serializeValue
+			parseLiteral:parse(arg: "provided in argument!")
+			parseValue:parse(arg: $val)
+		}`,
+		VariableValues: map[string]interface{}{
+			"val": "provided in values!",
+		},
+	})
+
+	serializeValue, ok := result.Data.(map[string]interface{})["serializeValue"].(string)
+	if !ok {
+		t.Fatalf("!ok")
+	}
+	if serializeValue != "this is resolved string!this is resolved string!" {
+		t.Fatalf("serializedValue != this is resolved string!this is resolved string!")
+	}
+
+	parseLiteral, ok := result.Data.(map[string]interface{})["parseLiteral"].(string)
+	if !ok {
+		t.Fatalf("!ok")
+	}
+	if parseLiteral != "provided in argument!provided in argument!" {
+		t.Fatalf("parsedValue != provided in argument!provided in argument!")
+	}
+
+	parseValue, ok := result.Data.(map[string]interface{})["parseValue"].(string)
+	if !ok {
+		t.Fatalf("!ok")
+	}
+	if parseValue != "provided in values!provided in values!" {
+		t.Fatalf("parsedValue != provided in values!provided in values!")
+	}
+}
+
 func getGQLSchema(filename string) (*actograph.Actograph, error) {
 	agh, err := actograph.NewActographFiles(filename, exampleDirectives)
 	if err != nil {
@@ -103,11 +148,15 @@ func getGQLSchema(filename string) (*actograph.Actograph, error) {
 	// RegisterDirectives before parse
 	if err := agh.RegisterDirectives(
 		directive.NewDirectiveDefinition("resolveString", directives.NewDirectiveResolveString),
+		directive.NewDirectiveDefinition("resolveArg", directives.NewDirectiveResolveArg),
 		directive.NewDirectiveDefinition("setContext", directives.NewDirectiveSetContext),
 		directive.NewDirectiveDefinition("getContext", directives.NewDirectiveGetContext),
+		directive.NewDirectiveDefinition("expect", directives.NewDirectiveExpect),
 	); err != nil {
 		return nil, fmt.Errorf("when registering directives: %v", err)
 	}
+
+	agh.RegisterScalar(scalars.DoubleStringScalarConfig)
 
 	if err := agh.Validate(); err != nil {
 		return nil, fmt.Errorf("when validating schema: %v", err)

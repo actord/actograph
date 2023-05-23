@@ -24,11 +24,14 @@ type Actograph struct {
 	directiveDefinitions   map[string]*ast.DirectiveDefinition
 	objectDefinitions      map[string]*ast.ObjectDefinition
 	inputObjectDefinitions map[string]*ast.InputObjectDefinition
-	enums                  map[string]map[string]string // $enumName.$enumKey.@enumVal(str=$Value)
+	// TODO: rewrite this to EnumConfig, maybe
+	enums           map[string]map[string]string // $enumName.$enumKey.@enumVal(str=$Value)
+	declaredScalars map[string]ScalarDefinition  // map name to description
 
 	// resulting objects, fill while making schema
 	objects      map[string]*graphql.Object
 	inputObjects map[string]*graphql.InputObject
+	scalars      map[string]*graphql.Scalar
 
 	lazySchema           *graphql.Schema
 	lazySchemaDirectives []directive.Directive
@@ -56,6 +59,36 @@ func (agh *Actograph) RegisterDirectives(dirs ...directive.Definition) error {
 		err = agh.RegisterDirective(dir)
 		if err != nil {
 			return fmt.Errorf("while registering directives at index '%d': %v", i, err)
+		}
+	}
+	return nil
+}
+
+func (agh *Actograph) RegisterScalar(cfg ScalarConfig) error {
+	newS := graphql.NewScalar(graphql.ScalarConfig{
+		Name:        cfg.Name,
+		Description: cfg.Description,
+		Serialize: func(value interface{}) interface{} {
+			return cfg.Serialize(value)
+		},
+		ParseValue: func(value interface{}) interface{} {
+			return cfg.ParseValue(value)
+		},
+		ParseLiteral: func(valueAST ast.Value) interface{} {
+			return cfg.ParseLiteral(valueAST)
+		},
+	})
+	agh.scalars[cfg.Name] = newS
+
+	return nil
+}
+
+func (agh *Actograph) RegisterScalars(cfgs ...ScalarConfig) error {
+	var err error
+	for i, cfg := range cfgs {
+		err = agh.RegisterScalar(cfg)
+		if err != nil {
+			return fmt.Errorf("while registering scalar at index '%d': %v", i, err)
 		}
 	}
 	return nil
@@ -119,7 +152,9 @@ func (agh *Actograph) Parse(graphqlFile []byte) error {
 		case "EnumDefinition":
 			n := node.(*ast.EnumDefinition)
 			agh.addEnum(n)
-
+		case "ScalarDefinition":
+			n := node.(*ast.ScalarDefinition)
+			agh.addScalar(n)
 		default:
 			panic(fmt.Errorf("unknown node kind: %s", node.GetKind()))
 		}
@@ -173,7 +208,13 @@ func (agh *Actograph) makeSchema() (graphql.Schema, error) {
 		var err error
 		agh.lazySchemaDirectives[i], err = agh.ConstructDirective(dir, agh.schema)
 		if err != nil {
-			log.Panicf("error when contructing directive: %v", err)
+			panic(fmt.Errorf("error when contructing directive: %v", err))
+		}
+	}
+
+	for _, scalarDefinition := range agh.declaredScalars {
+		if _, has := agh.scalars[scalarDefinition.Name]; !has {
+			panic(fmt.Errorf("scalar '%s' was declared by not defined", scalarDefinition.Name))
 		}
 	}
 
@@ -348,16 +389,7 @@ func (agh *Actograph) getType(typeDefinition ast.Type) graphql.Type {
 
 	name := typeDefinition.(*ast.Named).Name.Value
 
-	// check for scalar or return object
-	scalars := map[string]graphql.Type{
-		"String":   graphql.String,
-		"Int":      graphql.Int,
-		"Float":    graphql.Float,
-		"Boolean":  graphql.Boolean,
-		"ID":       graphql.ID,
-		"DateTime": graphql.DateTime,
-	}
-	if scalar, isScalar := scalars[name]; isScalar {
+	if scalar, isScalar := agh.scalars[name]; isScalar {
 		return scalar
 	}
 
@@ -401,6 +433,16 @@ func (agh *Actograph) makeEmptyObjects() {
 		})
 		agh.inputObjects[name] = obj
 	}
+	//
+	//for name, def := range agh.declaredScalars {
+	//	if _, has := agh.scalars[name]; has {
+	//		panic(fmt.Errorf("we already has defined scalar '%s'", name))
+	//	}
+	//	agh.scalars[name] = graphql.NewScalar(graphql.ScalarConfig{
+	//		Name:        name,
+	//		Description: def.Description,
+	//	})
+	//}
 }
 
 func (agh *Actograph) addDirective(n *ast.DirectiveDefinition) {
@@ -480,6 +522,27 @@ func (agh *Actograph) addEnum(node *ast.EnumDefinition) {
 	}
 
 	agh.enums[name] = enumKeyToVal
+}
+
+func (agh *Actograph) addScalar(node *ast.ScalarDefinition) {
+	// TODO: implement scalar directives when found use cases :)
+	if len(node.Directives) > 0 {
+		panic("directives under scalar is not implemented yet")
+	}
+	name := node.Name.Value
+	var description string
+	if node.Description != nil {
+		description = node.Description.Value
+	}
+
+	if _, has := agh.declaredScalars[name]; has {
+		panic(fmt.Errorf("scalar '%s' already declared", name))
+	}
+
+	agh.declaredScalars[name] = ScalarDefinition{
+		Name:        name,
+		Description: description,
+	}
 }
 
 func (agh *Actograph) executeDirectives(

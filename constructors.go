@@ -19,9 +19,19 @@ func NewActograph() *Actograph {
 		objectDefinitions:      map[string]*ast.ObjectDefinition{},
 		inputObjectDefinitions: map[string]*ast.InputObjectDefinition{},
 		enums:                  map[string]map[string]string{},
+		declaredScalars:        map[string]ScalarDefinition{},
 
 		objects:      map[string]*graphql.Object{},
 		inputObjects: map[string]*graphql.InputObject{},
+		scalars: map[string]*graphql.Scalar{
+			// check for scalar or return object
+			"String":   graphql.String,
+			"Int":      graphql.Int,
+			"Float":    graphql.Float,
+			"Boolean":  graphql.Boolean,
+			"ID":       graphql.ID,
+			"DateTime": graphql.DateTime,
+		},
 
 		lazySchemaDirectives: []directive.Directive{},
 	}

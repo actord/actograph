@@ -2,6 +2,10 @@ directive @resolveString(
     val: String!
 ) on FIELD_DEFINITION | ENUM_VALUE
 
+directive @resolveArg(
+    argName: String!
+) on FIELD_DEFINITION
+
 directive @setContext(
     key: String!
     val: String!
@@ -23,3 +27,7 @@ directive @enumPrivacy(
     backend: Boolean,
     frontend: Boolean,
 ) on ENUM
+
+directive @expect(
+    string: String
+) on FIELD_DEFINITION
