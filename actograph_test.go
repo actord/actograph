@@ -17,6 +17,7 @@ const simpleSchema = "./examples/schema/simple.graphql"
 const withUndefinedDirectiveSchema = "./examples/schema/testUndefinedDirective.graphql"
 const testContextSchema = "./examples/schema/testContext.graphql"
 const testScalarSchema = "./examples/schema/testScalar.graphql"
+const testInputType = "./examples/schema/testInputType.graphql"
 
 // Test todo:
 //  - check is Enum definition without @enumPrivacy directive fired error
@@ -137,6 +138,40 @@ func TestScalar(t *testing.T) {
 	if parseValue != "provided in values!provided in values!" {
 		t.Fatalf("parsedValue != provided in values!provided in values!")
 	}
+}
+
+func TestInputObject(t *testing.T) {
+	gscm, err := getGQLSchema(testInputType)
+	if err != nil {
+		t.Fatalf("error when creating schema: %v", err)
+	}
+
+	result, _ := gscm.Do(actograph.RequestQuery{
+		RequestString: `query Test($arg: InputType!) {
+			test(arg: $arg) {
+				field1
+				field2
+			}
+		}`,
+		VariableValues: map[string]interface{}{
+			"arg": map[string]interface{}{
+				"field1": "value1",
+				"field2": "value2",
+			},
+		},
+	})
+
+	f1, ok1 := result.Data.(map[string]interface{})["test"].(map[string]interface{})["field1"].(string)
+	f2, ok2 := result.Data.(map[string]interface{})["test"].(map[string]interface{})["field2"].(string)
+	if !ok1 || !ok2 {
+		t.Fatalf("field1 or field2 not presented in OutputType")
+	}
+
+	if f1 != "value1" || f2 != "value2" {
+		t.Fatalf("field1 or field2 has unexpected value")
+	}
+
+	log.Println("result", result)
 }
 
 func getGQLSchema(filename string) (*actograph.Actograph, error) {

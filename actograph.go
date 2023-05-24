@@ -310,6 +310,32 @@ func (agh *Actograph) fillCachedObjectsWithFields() {
 			agh.objects[objName].AddFieldConfig(fieldName, fieldConfig)
 		}
 	}
+
+	for inputObjName, inputObjDefinition := range agh.inputObjectDefinitions {
+		for _, fieldDefinition := range inputObjDefinition.Fields {
+			fieldName := fieldDefinition.Name.Value
+			fieldConfig := agh.makeInputField(fieldDefinition)
+			agh.inputObjects[inputObjName].AddFieldConfig(fieldName, fieldConfig)
+		}
+	}
+
+}
+
+func (agh *Actograph) makeInputField(fieldDefinition *ast.InputValueDefinition) *graphql.InputObjectFieldConfig {
+	if len(fieldDefinition.Directives) > 0 {
+		panic("input field directives are not supported yet")
+	}
+
+	var description string
+	if fieldDefinition.Description != nil {
+		description = fieldDefinition.Description.Value
+	}
+
+	return &graphql.InputObjectFieldConfig{
+		Type:         agh.getType(fieldDefinition.Type),
+		DefaultValue: fieldDefinition.DefaultValue,
+		Description:  description,
+	}
 }
 
 func (agh *Actograph) makeField(fieldDefinition *ast.FieldDefinition) *graphql.Field {

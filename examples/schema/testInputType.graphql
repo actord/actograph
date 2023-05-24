@@ -1,0 +1,18 @@
+schema {
+    query: Query
+}
+
+type Query {
+    test(arg: InputType!): OutputType!
+        @resolveArg(argName: "arg")
+}
+
+input InputType {
+    field1: String!
+    field2: String!
+}
+
+type OutputType {
+    field1: String!
+    field2: String!
+}
