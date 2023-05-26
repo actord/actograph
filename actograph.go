@@ -265,8 +265,8 @@ func (agh *Actograph) Do(request RequestQuery) (*Result, error) {
 		return nil, fmt.Errorf("when taking schema: %v", err)
 	}
 
-	var ctx context.Context
-	if request.Context == nil {
+	ctx := request.Context
+	if ctx == nil {
 		ctx = context.Background()
 	}
 
