@@ -18,6 +18,7 @@ const withUndefinedDirectiveSchema = "./examples/schema/testUndefinedDirective.g
 const testContextSchema = "./examples/schema/testContext.graphql"
 const testScalarSchema = "./examples/schema/testScalar.graphql"
 const testInputType = "./examples/schema/testInputType.graphql"
+const testDefineDirectivesSchema = "./examples/schema/testDefineDirectives.graphql"
 
 // Test todo:
 //  - check is Enum definition without @enumPrivacy directive fired error
@@ -151,26 +152,56 @@ func TestInputObject(t *testing.T) {
 			test(arg: $arg) {
 				field1
 				field2
+				# fieldEnum
 			}
 		}`,
 		VariableValues: map[string]interface{}{
 			"arg": map[string]interface{}{
 				"field1": "value1",
 				"field2": "value2",
+				//"fieldEnum": "VALUE2",
 			},
 		},
 	})
+	log.Println("result", result)
 
 	f1, ok1 := result.Data.(map[string]interface{})["test"].(map[string]interface{})["field1"].(string)
 	f2, ok2 := result.Data.(map[string]interface{})["test"].(map[string]interface{})["field2"].(string)
-	if !ok1 || !ok2 {
-		t.Fatalf("field1 or field2 not presented in OutputType")
+	//fEnum, okEnum := result.Data.(map[string]interface{})["test"].(map[string]interface{})["fieldEnum"].(string)
+	if !ok1 || !ok2 /*|| !okEnum*/ {
+		t.Fatalf("field1 or field2 or fieldEnum not presented in OutputType")
 	}
 
-	if f1 != "value1" || f2 != "value2" {
-		t.Fatalf("field1 or field2 has unexpected value")
+	if f1 != "value1" || f2 != "value2" /*|| fEnum != "VALUE2"*/ {
+		t.Fatalf("field1 or field2 or fieldEnum has unexpected value")
+	}
+}
+
+func TestDefineDirectives(t *testing.T) {
+	introspectionQuery := `
+		{
+		  __type(name: "Enum") {
+              __typename
+			  name
+			  kind
+			  fields(includeDeprecated: true) {
+				name
+				isDeprecated
+				deprecationReason
+				description
+			  }
+			}
+          deprecatedField
+		}
+	`
+	gscm, err := getGQLSchema(testDefineDirectivesSchema)
+	if err != nil {
+		t.Fatalf("error when creating schema: %v", err)
 	}
 
+	result, _ := gscm.Do(actograph.RequestQuery{
+		RequestString: introspectionQuery,
+	})
 	log.Println("result", result)
 }
 
@@ -182,6 +213,10 @@ func getGQLSchema(filename string) (*actograph.Actograph, error) {
 
 	// RegisterDirectives before parse
 	if err := agh.RegisterDirectives(
+		// todo: move default directives elsewhere
+		directive.NewDirectiveDefinition("deprecated", directive.NewDeprecated),
+		directive.NewDirectiveDefinition("_value", directive.NewValue),
+
 		directive.NewDirectiveDefinition("resolveString", directives.NewDirectiveResolveString),
 		directive.NewDirectiveDefinition("resolveArg", directives.NewDirectiveResolveArg),
 		directive.NewDirectiveDefinition("setContext", directives.NewDirectiveSetContext),

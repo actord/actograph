@@ -6,6 +6,21 @@ directive @resolveArg(
     argName: String!
 ) on FIELD_DEFINITION
 
+directive @deprecated(
+    reason: String!
+) on FIELD_DEFINITION
+
+directive @_value(
+    string: String,
+    int: Int,
+    bool: Boolean,
+) on ENUM_VALUE
+
+#directive @_privacy(
+#    backend: Boolean,
+#    frontend: Boolean,
+#) on ENUM
+
 directive @setContext(
     key: String!
     val: String!

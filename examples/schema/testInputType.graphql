@@ -10,9 +10,16 @@ type Query {
 input InputType {
     field1: String!
     field2: String!
+#    fieldEnum: ENMType!
 }
 
 type OutputType {
     field1: String!
     field2: String!
+#    fieldEnum: ENMType!
 }
+
+#enum ENMType {
+#    VALUE1
+#    VALUE2
+#}

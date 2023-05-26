@@ -24,11 +24,11 @@ type Actograph struct {
 	directiveDefinitions   map[string]*ast.DirectiveDefinition
 	objectDefinitions      map[string]*ast.ObjectDefinition
 	inputObjectDefinitions map[string]*ast.InputObjectDefinition
-	// TODO: rewrite this to EnumConfig, maybe
-	enums           map[string]map[string]string // $enumName.$enumKey.@enumVal(str=$Value)
-	declaredScalars map[string]ScalarDefinition  // map name to description
+	enumDefinitions        map[string]*ast.EnumDefinition
+	declaredScalars        map[string]ScalarDefinition // map name to description
 
 	// resulting objects, fill while making schema
+	enums        map[string]*graphql.Enum
 	objects      map[string]*graphql.Object
 	inputObjects map[string]*graphql.InputObject
 	scalars      map[string]*graphql.Scalar
@@ -109,6 +109,10 @@ func (agh *Actograph) ConstructDirective(dir *ast.Directive, node ast.Node) (dir
 
 func (agh *Actograph) makeDirectiveArguments(dir *ast.Directive, dirDefinition *ast.DirectiveDefinition) directive.Arguments {
 	arguments := directive.Arguments{}
+
+	if dirDefinition == nil || dir == nil {
+		panic("internal error")
+	}
 
 	for _, argDefinition := range dirDefinition.Arguments {
 		if argDefinition.DefaultValue != nil {
@@ -303,6 +307,42 @@ func (agh *Actograph) Do(request RequestQuery) (*Result, error) {
 }
 
 func (agh *Actograph) fillCachedObjectsWithFields() {
+
+	for enumName, enumDefinition := range agh.enumDefinitions {
+		var description string
+		if enumDefinition.Description != nil {
+			description = enumDefinition.Description.Value
+		}
+
+		values := graphql.EnumValueConfigMap{}
+		for _, valueDefinition := range enumDefinition.Values {
+
+			name := valueDefinition.Name.Value
+			var valueDescription string
+			if valueDefinition.Description != nil {
+				valueDescription = valueDefinition.Description.Value
+			}
+			valCfg := &graphql.EnumValueConfig{
+				Value:       name,
+				Description: valueDescription,
+			}
+
+			if len(valueDefinition.Directives) > 0 {
+				directiveExecutables := agh.makeDirectives(valueDefinition, valueDefinition.Directives)
+				if err := agh.executeDefineDirectives(directiveExecutables, "*graphql.EnumValueConfig", valCfg); err != nil {
+					panic(err)
+				}
+			}
+
+			enum := graphql.NewEnum(graphql.EnumConfig{
+				Name:        enumName,
+				Values:      values,
+				Description: description,
+			})
+			agh.enums[enumName] = enum
+		}
+	}
+
 	for objName, objDefinition := range agh.objectDefinitions {
 		for _, fieldDefinition := range objDefinition.Fields {
 			fieldName := fieldDefinition.Name.Value
@@ -318,7 +358,6 @@ func (agh *Actograph) fillCachedObjectsWithFields() {
 			agh.inputObjects[inputObjName].AddFieldConfig(fieldName, fieldConfig)
 		}
 	}
-
 }
 
 func (agh *Actograph) makeInputField(fieldDefinition *ast.InputValueDefinition) *graphql.InputObjectFieldConfig {
@@ -368,11 +407,27 @@ func (agh *Actograph) makeField(fieldDefinition *ast.FieldDefinition) *graphql.F
 		description = fieldDefinition.Description.Value
 	}
 
-	var deprecationReason string
-	// TODO: @deprecated directive
+	directiveExecutables := agh.makeDirectives(fieldDefinition, fieldDefinition.Directives)
 
-	directiveExecutables := make([]directive.Directive, len(fieldDefinition.Directives))
-	for i, directiveUsageDefinition := range fieldDefinition.Directives {
+	f := &graphql.Field{
+		Name:        fieldDefinition.Name.Value,
+		Type:        agh.getType(fieldDefinition.Type),
+		Args:        args,
+		Resolve:     agh.getFieldResolveFunc(directiveExecutables),
+		Subscribe:   agh.getFieldSubscribeFunc(),
+		Description: description,
+	}
+
+	if err := agh.executeDefineDirectives(directiveExecutables, "*graphql.Field", f); err != nil {
+		panic(err)
+	}
+
+	return f
+}
+
+func (agh *Actograph) makeDirectives(node ast.Node, directiveDefinitions []*ast.Directive) []directive.Directive {
+	directiveExecutables := make([]directive.Directive, len(directiveDefinitions))
+	for i, directiveUsageDefinition := range directiveDefinitions {
 		name := directiveUsageDefinition.Name.Value
 		args := map[string]ast.Value{}
 		for _, arg := range directiveUsageDefinition.Arguments {
@@ -380,24 +435,13 @@ func (agh *Actograph) makeField(fieldDefinition *ast.FieldDefinition) *graphql.F
 		}
 		directiveDefinition := agh.directiveDefinitions[name]
 		dirArguments := agh.makeDirectiveArguments(directiveUsageDefinition, directiveDefinition)
-		directiveExecutable, err := agh.directiveDeclarations[name].Construct(dirArguments, fieldDefinition)
+		directiveExecutable, err := agh.directiveDeclarations[name].Construct(dirArguments, node)
 		if err != nil {
-			panic(fmt.Errorf("cant construct directive usage for field '%s' and @%s : %v", fieldDefinition.Name.Value, name, err))
+			panic(fmt.Errorf("cant construct directive usage for @%s: %v", name, err))
 		}
 		directiveExecutables[i] = directiveExecutable
 	}
-
-	f := &graphql.Field{
-		Name:              fieldDefinition.Name.Value,
-		Type:              agh.getType(fieldDefinition.Type),
-		Args:              args,
-		Resolve:           agh.getFieldResolveFunc(directiveExecutables),
-		Subscribe:         agh.getFieldSubscribeFunc(),
-		DeprecationReason: deprecationReason,
-		Description:       description,
-	}
-
-	return f
+	return directiveExecutables
 }
 
 func (agh *Actograph) getType(typeDefinition ast.Type) graphql.Type {
@@ -427,12 +471,24 @@ func (agh *Actograph) getType(typeDefinition ast.Type) graphql.Type {
 		return inputObject
 	}
 
+	if enum, isEnum := agh.enums[name]; isEnum {
+		if enum == nil {
+			panic("fix this")
+		}
+		return enum
+	}
+
 	panic(fmt.Errorf("unknown named type: %s", name))
 }
 
 // makeEmptyObjects just will create references for necessary objects before we create types and fields for avoiding
 // deadlock when create object that depends on object that depends on objects we're currently trying to create
 func (agh *Actograph) makeEmptyObjects() {
+	// TODO: make sure its necessary
+	for name := range agh.enumDefinitions {
+		agh.enums[name] = nil
+	}
+
 	for name, objDefinition := range agh.objectDefinitions {
 		var description string
 		if objDefinition.Description != nil {
@@ -471,6 +527,48 @@ func (agh *Actograph) makeEmptyObjects() {
 	//}
 }
 
+//
+//func (agh *Actograph) makeEnum(node *ast.EnumDefinition) {
+//	name := node.Name.Value
+//	if _, has := agh.enums[name]; has {
+//		panic(fmt.Errorf("enum with name '%s' already defined", name))
+//	}
+//
+//	var description string
+//	if node.Description != nil {
+//		description = node.Description.Value
+//	}
+//
+//	enumCfg := graphql.EnumConfig{
+//		Name:        name,
+//		Values:      graphql.EnumValueConfigMap{},
+//		Description: description,
+//	}
+//
+//	for _, val := range node.Values {
+//		name := val.Name.Value
+//		var valueDescription string
+//		if val.Description != nil {
+//			valueDescription = val.Description.Value
+//		}
+//		valCfg := &graphql.EnumValueConfig{
+//			Value:       name,
+//			Description: valueDescription,
+//		}
+//
+//		if len(val.Directives) > 0 {
+//			directiveExecutables := agh.makeDirectives(val, val.Directives)
+//			if err := agh.executeDefineDirectives(directiveExecutables, "*graphql.EnumValueConfig", valCfg); err != nil {
+//				panic(err)
+//			}
+//		}
+//
+//		enumCfg.Values[name] = valCfg
+//	}
+//
+//	agh.enums[name] = enumCfg
+//}
+
 func (agh *Actograph) addDirective(n *ast.DirectiveDefinition) {
 	name := n.Name.Value
 	if _, has := agh.directiveDefinitions[name]; has {
@@ -504,50 +602,10 @@ func (agh *Actograph) addSchema(node *ast.SchemaDefinition) {
 
 func (agh *Actograph) addEnum(node *ast.EnumDefinition) {
 	name := node.Name.Value
-	if _, has := agh.enums[name]; has {
-		panic(fmt.Errorf("enum with name '%s' already defined", name))
+	if _, has := agh.enumDefinitions[name]; has {
+		log.Panicf("enum with name '%s' already defined", name)
 	}
-	allowInBackend := false
-	allowInFrontend := false
-	hasEnumPrivacyDirective := false
-	for _, dir := range node.Directives {
-		switch dir.Name.Value {
-		case "enumPrivacy":
-			hasEnumPrivacyDirective = true
-			for _, arg := range dir.Arguments {
-				switch arg.Name.Value {
-				case "backend":
-					allowInBackend = arg.Value.GetValue().(bool)
-				case "frontend":
-					allowInFrontend = arg.Value.GetValue().(bool)
-				}
-			}
-		default:
-			panic(fmt.Errorf("unknown directive '%s' on enum '%s'", name, dir.Name.Value))
-		}
-	}
-	if !hasEnumPrivacyDirective {
-		panic(fmt.Errorf("enum '%s' should has @enumPrivacy directive", name))
-	}
-	if allowInBackend == false && allowInFrontend == false {
-		panic(fmt.Errorf("enum '%s' should be allowed for backend or frontend using @enumPrivacy directive	", name))
-	}
-
-	// TODO: move createDirectives from ast.Directive co common function, because its used a lot
-	enumKeyToVal := map[string]string{}
-	for _, value := range node.Values {
-		key := value.Name.Value
-		var val string
-		for _, dir := range value.Directives {
-			switch dir.Name.Value {
-			case "enumVal":
-				val = dir.Arguments[0].Value.GetValue().(string) // TODO: this is potential crash
-			}
-		}
-		enumKeyToVal[key] = val
-	}
-
-	agh.enums[name] = enumKeyToVal
+	agh.enumDefinitions[name] = node
 }
 
 func (agh *Actograph) addScalar(node *ast.ScalarDefinition) {
@@ -590,4 +648,15 @@ func (agh *Actograph) executeDirectives(
 	}
 
 	return resolvedValue, ctx, err
+}
+
+func (agh *Actograph) executeDefineDirectives(directives []directive.Directive, kind string, obj interface{}) error {
+	var err error
+	for i, dir := range directives {
+		err = dir.Define(kind, obj)
+		if err != nil {
+			return fmt.Errorf("when executeDefine in directive #%d: %v", i, err)
+		}
+	}
+	return nil
 }

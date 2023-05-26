@@ -33,3 +33,7 @@ func (d *DirectiveResolveArg) Execute(
 	}
 	return value, ctx, nil
 }
+
+func (d *DirectiveResolveArg) Define(_ string, _ interface{}) error {
+	return nil
+}

@@ -28,3 +28,7 @@ func (d *DirectiveResolveString) Execute(
 ) (interface{}, context.Context, error) { // resolved value with updated context or error
 	return d.val, ctx, nil
 }
+
+func (d *DirectiveResolveString) Define(_ string, _ interface{}) error {
+	return nil
+}

@@ -18,9 +18,10 @@ func NewActograph() *Actograph {
 		directiveDefinitions:   map[string]*ast.DirectiveDefinition{},
 		objectDefinitions:      map[string]*ast.ObjectDefinition{},
 		inputObjectDefinitions: map[string]*ast.InputObjectDefinition{},
-		enums:                  map[string]map[string]string{},
+		enumDefinitions:        map[string]*ast.EnumDefinition{},
 		declaredScalars:        map[string]ScalarDefinition{},
 
+		enums:        map[string]*graphql.Enum{},
 		objects:      map[string]*graphql.Object{},
 		inputObjects: map[string]*graphql.InputObject{},
 		scalars: map[string]*graphql.Scalar{

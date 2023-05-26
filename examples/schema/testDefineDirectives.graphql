@@ -1,0 +1,17 @@
+schema {
+    query: Query
+}
+
+type Query {
+    deprecatedField: String!
+        @deprecated(reason: "this is deprecated field")
+        @resolveString(val: "test")
+
+    enumConfig(val: Enum!): String!
+}
+
+#enum Enum @_privacy(backend: true) {
+enum Enum {
+    KEY1 @_value(string: "value1")
+    KEY2 @_value(string: "value2")
+}

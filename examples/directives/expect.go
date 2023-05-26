@@ -37,3 +37,7 @@ func (d *DirectiveExpect) Execute(
 	}
 	return nil, ctx, fmt.Errorf("expected string: '%s' but got: '%v'", d.expectedString, resolvedValue)
 }
+
+func (d *DirectiveExpect) Define(_ string, _ interface{}) error {
+	return nil
+}

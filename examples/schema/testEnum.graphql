@@ -1,0 +1,22 @@
+schema {
+    query: Query
+}
+
+type Query {
+    test(arg: EnumType!): EnumType!
+        @resolveArg(argName: "arg")
+}
+
+enum EnumType @enumPrivacy(backend: true) {
+    """
+    this is VALUE1 description
+    """
+    VALUE1
+
+    """
+    this is VALUE2 description
+    """
+    VALUE2
+
+    VALUE3
+}
