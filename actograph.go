@@ -2,7 +2,6 @@ package actograph
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 
@@ -296,9 +295,6 @@ func (agh *Actograph) Do(request RequestQuery) (*Result, error) {
 		return nil, fmt.Errorf("unknown result")
 	}
 
-	a, err := json.Marshal(result)
-	fmt.Printf("err: %v\na: %s\n", err, string(a))
-
 	return &Result{
 		Data:       result.Data,
 		Errors:     result.Errors,
@@ -515,59 +511,7 @@ func (agh *Actograph) makeEmptyObjects() {
 		})
 		agh.inputObjects[name] = obj
 	}
-	//
-	//for name, def := range agh.declaredScalars {
-	//	if _, has := agh.scalars[name]; has {
-	//		panic(fmt.Errorf("we already has defined scalar '%s'", name))
-	//	}
-	//	agh.scalars[name] = graphql.NewScalar(graphql.ScalarConfig{
-	//		Name:        name,
-	//		Description: def.Description,
-	//	})
-	//}
 }
-
-//
-//func (agh *Actograph) makeEnum(node *ast.EnumDefinition) {
-//	name := node.Name.Value
-//	if _, has := agh.enums[name]; has {
-//		panic(fmt.Errorf("enum with name '%s' already defined", name))
-//	}
-//
-//	var description string
-//	if node.Description != nil {
-//		description = node.Description.Value
-//	}
-//
-//	enumCfg := graphql.EnumConfig{
-//		Name:        name,
-//		Values:      graphql.EnumValueConfigMap{},
-//		Description: description,
-//	}
-//
-//	for _, val := range node.Values {
-//		name := val.Name.Value
-//		var valueDescription string
-//		if val.Description != nil {
-//			valueDescription = val.Description.Value
-//		}
-//		valCfg := &graphql.EnumValueConfig{
-//			Value:       name,
-//			Description: valueDescription,
-//		}
-//
-//		if len(val.Directives) > 0 {
-//			directiveExecutables := agh.makeDirectives(val, val.Directives)
-//			if err := agh.executeDefineDirectives(directiveExecutables, "*graphql.EnumValueConfig", valCfg); err != nil {
-//				panic(err)
-//			}
-//		}
-//
-//		enumCfg.Values[name] = valCfg
-//	}
-//
-//	agh.enums[name] = enumCfg
-//}
 
 func (agh *Actograph) addDirective(n *ast.DirectiveDefinition) {
 	name := n.Name.Value
