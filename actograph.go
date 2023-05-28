@@ -41,10 +41,10 @@ func (agh *Actograph) RegisterDirective(dir directive.Definition) error {
 		return fmt.Errorf("directive @%s already registered", dir.Name())
 	}
 
-	//_, has := agh.directiveDefinitions[dir.Name()]
-	//if !has {
-	//	return fmt.Errorf("directive @%s is not defined in schema", dir.Name())
-	//}
+	_, has := agh.directiveDefinitions[dir.Name()]
+	if !has {
+		return fmt.Errorf("directive @%s is not defined in schema", dir.Name())
+	}
 
 	// TODO: validate declared arguments, maybe
 
@@ -110,7 +110,7 @@ func (agh *Actograph) makeDirectiveArguments(dir *ast.Directive, dirDefinition *
 	arguments := directive.Arguments{}
 
 	if dirDefinition == nil || dir == nil {
-		panic("internal error")
+		panic(fmt.Errorf("no dir or definition: %v / %v", dir, dirDefinition))
 	}
 
 	for _, argDefinition := range dirDefinition.Arguments {
@@ -329,14 +329,15 @@ func (agh *Actograph) fillCachedObjectsWithFields() {
 					panic(err)
 				}
 			}
-
-			enum := graphql.NewEnum(graphql.EnumConfig{
-				Name:        enumName,
-				Values:      values,
-				Description: description,
-			})
-			agh.enums[enumName] = enum
+			values[name] = valCfg
 		}
+
+		enum := graphql.NewEnum(graphql.EnumConfig{
+			Name:        enumName,
+			Values:      values,
+			Description: description,
+		})
+		agh.enums[enumName] = enum
 	}
 
 	for objName, objDefinition := range agh.objectDefinitions {
@@ -429,6 +430,7 @@ func (agh *Actograph) makeDirectives(node ast.Node, directiveDefinitions []*ast.
 		for _, arg := range directiveUsageDefinition.Arguments {
 			args[arg.Name.Value] = arg.Value
 		}
+
 		directiveDefinition := agh.directiveDefinitions[name]
 		dirArguments := agh.makeDirectiveArguments(directiveUsageDefinition, directiveDefinition)
 		directiveExecutable, err := agh.directiveDeclarations[name].Construct(dirArguments, node)

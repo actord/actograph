@@ -3,11 +3,11 @@ schema {
 }
 
 type Query {
-    test(arg: EnumType!): EnumType!
-        @resolveArg(argName: "arg")
+    test: EnumType!
+#        @_value(string: "VALUE2")
 }
 
-enum EnumType @enumPrivacy(backend: true) {
+enum EnumType {
     """
     this is VALUE1 description
     """

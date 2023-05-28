@@ -17,6 +17,7 @@ const simpleSchema = "./examples/schema/simple.graphql"
 const withUndefinedDirectiveSchema = "./examples/schema/testUndefinedDirective.graphql"
 const testContextSchema = "./examples/schema/testContext.graphql"
 const testScalarSchema = "./examples/schema/testScalar.graphql"
+const testEnum = "./examples/schema/testEnum.graphql"
 const testInputType = "./examples/schema/testInputType.graphql"
 const testDefineDirectivesSchema = "./examples/schema/testDefineDirectives.graphql"
 
@@ -195,6 +196,34 @@ func TestDefineDirectives(t *testing.T) {
 		}
 	`
 	gscm, err := getGQLSchema(testDefineDirectivesSchema)
+	if err != nil {
+		t.Fatalf("error when creating schema: %v", err)
+	}
+
+	result, _ := gscm.Do(actograph.RequestQuery{
+		RequestString: introspectionQuery,
+	})
+	log.Println("result", result)
+}
+
+func TestEnum(t *testing.T) {
+	introspectionQuery := `
+		{
+		  __type(name: "EnumType") {
+              __typename
+			  name
+			  kind
+			  fields(includeDeprecated: true) {
+				name
+				isDeprecated
+				deprecationReason
+				description
+			  }
+			}
+          deprecatedField
+		}
+	`
+	gscm, err := getGQLSchema(testEnum)
 	if err != nil {
 		t.Fatalf("error when creating schema: %v", err)
 	}
