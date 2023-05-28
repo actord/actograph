@@ -72,6 +72,8 @@ func (d *Value) Define(kind string, obj interface{}) error {
 	case "*graphql.EnumValueConfig":
 		enumConfig := obj.(*graphql.EnumValueConfig)
 		enumConfig.Value = d.getValue(nil) // nil - because its not argument values at define time
+	case "*graphql.Field":
+		return nil
 	default:
 		return fmt.Errorf("unsupported kind '%s' for @_value", kind)
 	}
