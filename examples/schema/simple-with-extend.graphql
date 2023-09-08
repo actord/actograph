@@ -1,0 +1,11 @@
+schema {
+    query: Query
+}
+
+type Query {
+    hello: String! @resolveString(val: "world")
+}
+
+extend type Query {
+    test: String! @resolveString(val: "test from extended field")
+}

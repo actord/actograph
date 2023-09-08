@@ -17,6 +17,7 @@ func NewActograph() *Actograph {
 
 		directiveDefinitions:   map[string]*ast.DirectiveDefinition{},
 		objectDefinitions:      map[string]*ast.ObjectDefinition{},
+		extensionDefinitions:   map[string][]*ast.TypeExtensionDefinition{},
 		inputObjectDefinitions: map[string]*ast.InputObjectDefinition{},
 		enumDefinitions:        map[string]*ast.EnumDefinition{},
 		declaredScalars:        map[string]ScalarDefinition{},

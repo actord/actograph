@@ -14,6 +14,7 @@ import (
 
 const exampleDirectives = "./examples/schema/directives.graphql"
 const simpleSchema = "./examples/schema/simple.graphql"
+const simpleWithExtendSchema = "./examples/schema/simple-with-extend.graphql"
 const withUndefinedDirectiveSchema = "./examples/schema/testUndefinedDirective.graphql"
 const testContextSchema = "./examples/schema/testContext.graphql"
 const testScalarSchema = "./examples/schema/testScalar.graphql"
@@ -49,6 +50,34 @@ func TestSimpleWorkflow(t *testing.T) {
 	}
 	if hello != "world" {
 		t.Fatalf("hello != world")
+	}
+}
+
+func TestExtend(t *testing.T) {
+	gscm, err := getGQLSchema(simpleWithExtendSchema)
+	if err != nil {
+		t.Fatalf("error when creating schema: %v", err)
+	}
+
+	// we can safely ignore error, because its schema validation error only
+	result, _ := gscm.Do(actograph.RequestQuery{
+		RequestString: `query Test { hello test }`,
+	})
+
+	hello, ok := result.Data.(map[string]interface{})["hello"].(string)
+	if !ok {
+		t.Fatalf("!ok")
+	}
+	if hello != "world" {
+		t.Fatalf("hello != world")
+	}
+
+	test, ok := result.Data.(map[string]interface{})["test"].(string)
+	if !ok {
+		t.Fatalf("!ok")
+	}
+	if test != "test from extended field" {
+		t.Fatalf("test != test from extended field")
 	}
 }
 
@@ -234,8 +263,10 @@ func TestEnum(t *testing.T) {
 	log.Println("result", result)
 }
 
-func getGQLSchema(filename string) (*actograph.Actograph, error) {
-	agh, err := actograph.NewActographFiles(filename, exampleDirectives)
+func getGQLSchema(filenames ...string) (*actograph.Actograph, error) {
+	allFiles := append([]string{exampleDirectives}, filenames...)
+
+	agh, err := actograph.NewActographFiles(allFiles...)
 	if err != nil {
 		return nil, fmt.Errorf("when parse file: %v", err)
 	}

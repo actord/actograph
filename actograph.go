@@ -25,6 +25,7 @@ type Actograph struct {
 	inputObjectDefinitions map[string]*ast.InputObjectDefinition
 	enumDefinitions        map[string]*ast.EnumDefinition
 	declaredScalars        map[string]ScalarDefinition // map name to description
+	extensionDefinitions   map[string][]*ast.TypeExtensionDefinition
 
 	// resulting objects, fill while making schema
 	enums        map[string]*graphql.Enum
@@ -158,6 +159,9 @@ func (agh *Actograph) Parse(graphqlFile []byte) error {
 		case "ScalarDefinition":
 			n := node.(*ast.ScalarDefinition)
 			agh.addScalar(n)
+		case "TypeExtensionDefinition":
+			n := node.(*ast.TypeExtensionDefinition)
+			agh.addExtensionDefinition(n)
 		default:
 			panic(fmt.Errorf("unknown node kind: %s", node.GetKind()))
 		}
@@ -345,6 +349,16 @@ func (agh *Actograph) fillCachedObjectsWithFields() {
 			fieldName := fieldDefinition.Name.Value
 			fieldConfig := agh.makeField(fieldDefinition)
 			agh.objects[objName].AddFieldConfig(fieldName, fieldConfig)
+		}
+
+		if extended, has := agh.extensionDefinitions[objName]; has {
+			for _, ext := range extended {
+				for _, fieldDefinition := range ext.Definition.Fields {
+					fieldName := fieldDefinition.Name.Value
+					fieldConfig := agh.makeField(fieldDefinition)
+					agh.objects[objName].AddFieldConfig(fieldName, fieldConfig)
+				}
+			}
 		}
 	}
 
@@ -573,6 +587,11 @@ func (agh *Actograph) addScalar(node *ast.ScalarDefinition) {
 		Name:        name,
 		Description: description,
 	}
+}
+
+func (agh *Actograph) addExtensionDefinition(node *ast.TypeExtensionDefinition) {
+	name := node.Definition.Name.Value
+	agh.extensionDefinitions[name] = append(agh.extensionDefinitions[name], node)
 }
 
 func (agh *Actograph) executeDirectives(
