@@ -395,14 +395,14 @@ func (agh *Actograph) makeField(fieldDefinition *ast.FieldDefinition) *graphql.F
 		for _, argDefinition := range fieldDefinition.Arguments {
 			name := argDefinition.Name.Value
 			argType := agh.getType(argDefinition.Type)
-			// TODO: maybe we should check as argType is scalar or inputObject, because objects is not allowed as arguments
+			// TODO: maybe we should check is argType is scalar or inputObject, because objects is not allowed as arguments
 			var defaultValue interface{}
 			if argDefinition.DefaultValue != nil {
 				defaultValue = argDefinition.DefaultValue.GetValue()
 			}
 			var description string
-			if fieldDefinition.Description != nil {
-				description = fieldDefinition.Description.Value
+			if argDefinition.Description != nil {
+				description = argDefinition.Description.Value
 			}
 
 			args[name] = &graphql.ArgumentConfig{
