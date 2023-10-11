@@ -23,7 +23,7 @@ func (agh *Actograph) getFieldResolveFunc(directives []directive.Directive) grap
 
 		// apply directives
 		var err error
-		resolvedValue, ctx, err = agh.executeDirectives(ctx, source, resolvedValue, args, directives)
+		resolvedValue, _, err = agh.executeDirectives(ctx, source, resolvedValue, args, directives)
 
 		return resolvedValue, err
 	}

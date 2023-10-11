@@ -20,10 +20,12 @@ func NewActograph() *Actograph {
 		extensionDefinitions:   map[string][]*ast.TypeExtensionDefinition{},
 		inputObjectDefinitions: map[string]*ast.InputObjectDefinition{},
 		enumDefinitions:        map[string]*ast.EnumDefinition{},
+		unionDefinitions:       map[string]*ast.UnionDefinition{},
 		declaredScalars:        map[string]ScalarDefinition{},
 
 		enums:        map[string]*graphql.Enum{},
 		objects:      map[string]*graphql.Object{},
+		unions:       map[string]*graphql.Union{},
 		inputObjects: map[string]*graphql.InputObject{},
 		scalars: map[string]*graphql.Scalar{
 			// check for scalar or return object
@@ -49,18 +51,18 @@ func NewActographFiles(filenames ...string) (*Actograph, error) {
 	for i, filename := range filenames {
 		f, err := os.Open(filename)
 		if err != nil {
-			return nil, fmt.Errorf("when reading schema in file %s: %v", filename, err)
+			return nil, fmt.Errorf("when reading schema in file %s: %w", filename, err)
 		}
 		files[i] = f
 	}
 
 	gqlSchemaData, err := io.ReadAll(io.MultiReader(files...))
 	if err != nil {
-		return nil, fmt.Errorf("when reading files: %v", err)
+		return nil, fmt.Errorf("when reading files: %w", err)
 	}
 	agh, err := NewActographBytes(gqlSchemaData)
 	if err != nil {
-		return nil, fmt.Errorf("when parse file: %v", err)
+		return nil, fmt.Errorf("when parse file: %w", err)
 	}
 
 	return agh, nil

@@ -36,7 +36,7 @@ func TestErrorUndefinedDirective(t *testing.T) {
 func TestSimpleWorkflow(t *testing.T) {
 	gscm, err := getGQLSchema(simpleSchema)
 	if err != nil {
-		t.Fatalf("error when creating schema: %v", err)
+		t.Fatalf("error when creating schema: %w", err)
 	}
 
 	// we can safely ignore error, because its schema validation error only
@@ -56,7 +56,7 @@ func TestSimpleWorkflow(t *testing.T) {
 func TestExtend(t *testing.T) {
 	gscm, err := getGQLSchema(simpleWithExtendSchema)
 	if err != nil {
-		t.Fatalf("error when creating schema: %v", err)
+		t.Fatalf("error when creating schema: %w", err)
 	}
 
 	// we can safely ignore error, because its schema validation error only
@@ -84,7 +84,7 @@ func TestExtend(t *testing.T) {
 func TestContextWorkflow(t *testing.T) {
 	gscm, err := getGQLSchema(testContextSchema)
 	if err != nil {
-		t.Fatalf("error when creating schema: %v", err)
+		t.Fatalf("error when creating schema: %w", err)
 	}
 
 	// we can safely ignore error, because its schema validation error only
@@ -131,7 +131,7 @@ func TestContextWorkflow(t *testing.T) {
 func TestScalar(t *testing.T) {
 	gscm, err := getGQLSchema(testScalarSchema)
 	if err != nil {
-		t.Fatalf("error when creating schema: %v", err)
+		t.Fatalf("error when creating schema: %w", err)
 	}
 
 	// we can safely ignore error, because its schema validation error only
@@ -174,7 +174,7 @@ func TestScalar(t *testing.T) {
 func TestInputObject(t *testing.T) {
 	gscm, err := getGQLSchema(testInputType)
 	if err != nil {
-		t.Fatalf("error when creating schema: %v", err)
+		t.Fatalf("error when creating schema: %w", err)
 	}
 
 	result, _ := gscm.Do(actograph.RequestQuery{
@@ -226,7 +226,7 @@ func TestDefineDirectives(t *testing.T) {
 	`
 	gscm, err := getGQLSchema(testDefineDirectivesSchema)
 	if err != nil {
-		t.Fatalf("error when creating schema: %v", err)
+		t.Fatalf("error when creating schema: %w", err)
 	}
 
 	result, _ := gscm.Do(actograph.RequestQuery{
@@ -254,7 +254,7 @@ func TestEnum(t *testing.T) {
 	`
 	gscm, err := getGQLSchema(testEnum)
 	if err != nil {
-		t.Fatalf("error when creating schema: %v", err)
+		t.Fatalf("error when creating schema: %w", err)
 	}
 
 	result, _ := gscm.Do(actograph.RequestQuery{
@@ -268,7 +268,7 @@ func getGQLSchema(filenames ...string) (*actograph.Actograph, error) {
 
 	agh, err := actograph.NewActographFiles(allFiles...)
 	if err != nil {
-		return nil, fmt.Errorf("when parse file: %v", err)
+		return nil, fmt.Errorf("when parse file: %w", err)
 	}
 
 	// RegisterDirectives before parse
@@ -283,13 +283,13 @@ func getGQLSchema(filenames ...string) (*actograph.Actograph, error) {
 		directive.NewDirectiveDefinition("getContext", directives.NewDirectiveGetContext),
 		directive.NewDirectiveDefinition("expect", directives.NewDirectiveExpect),
 	); err != nil {
-		return nil, fmt.Errorf("when registering directives: %v", err)
+		return nil, fmt.Errorf("when registering directives: %w", err)
 	}
 
 	agh.RegisterScalar(scalars.DoubleStringScalarConfig)
 
 	if err := agh.Validate(); err != nil {
-		return nil, fmt.Errorf("when validating schema: %v", err)
+		return nil, fmt.Errorf("when validating schema: %w", err)
 	}
 	return agh, nil
 }

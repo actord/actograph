@@ -24,6 +24,7 @@ type Actograph struct {
 	objectDefinitions      map[string]*ast.ObjectDefinition
 	inputObjectDefinitions map[string]*ast.InputObjectDefinition
 	enumDefinitions        map[string]*ast.EnumDefinition
+	unionDefinitions       map[string]*ast.UnionDefinition
 	declaredScalars        map[string]ScalarDefinition // map name to description
 	extensionDefinitions   map[string][]*ast.TypeExtensionDefinition
 
@@ -32,6 +33,7 @@ type Actograph struct {
 	objects      map[string]*graphql.Object
 	inputObjects map[string]*graphql.InputObject
 	scalars      map[string]*graphql.Scalar
+	unions       map[string]*graphql.Union
 
 	lazySchema           *graphql.Schema
 	lazySchemaDirectives []directive.Directive
@@ -58,7 +60,7 @@ func (agh *Actograph) RegisterDirectives(dirs ...directive.Definition) error {
 	for i, dir := range dirs {
 		err = agh.RegisterDirective(dir)
 		if err != nil {
-			return fmt.Errorf("while registering directives at index '%d': %v", i, err)
+			return fmt.Errorf("while registering directives at index '%d': %w", i, err)
 		}
 	}
 	return nil
@@ -88,7 +90,7 @@ func (agh *Actograph) RegisterScalars(cfgs ...ScalarConfig) error {
 	for i, cfg := range cfgs {
 		err = agh.RegisterScalar(cfg)
 		if err != nil {
-			return fmt.Errorf("while registering scalar at index '%d': %v", i, err)
+			return fmt.Errorf("while registering scalar at index '%d': %w", i, err)
 		}
 	}
 	return nil
@@ -136,7 +138,7 @@ func (agh *Actograph) Parse(graphqlFile []byte) error {
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("err while parsing: %v", err)
+		return fmt.Errorf("err while parsing: %w", err)
 	}
 
 	for _, node := range astDoc.Definitions {
@@ -159,6 +161,9 @@ func (agh *Actograph) Parse(graphqlFile []byte) error {
 		case "ScalarDefinition":
 			n := node.(*ast.ScalarDefinition)
 			agh.addScalar(n)
+		case "UnionDefinition":
+			n := node.(*ast.UnionDefinition)
+			agh.addUnion(n)
 		case "TypeExtensionDefinition":
 			n := node.(*ast.TypeExtensionDefinition)
 			agh.addExtensionDefinition(n)
@@ -215,7 +220,7 @@ func (agh *Actograph) makeSchema() (graphql.Schema, error) {
 		var err error
 		agh.lazySchemaDirectives[i], err = agh.ConstructDirective(dir, agh.schema)
 		if err != nil {
-			panic(fmt.Errorf("error when contructing directive: %v", err))
+			panic(fmt.Errorf("error when contructing directive: %w", err))
 		}
 	}
 
@@ -265,7 +270,7 @@ func (agh *Actograph) makeSchema() (graphql.Schema, error) {
 func (agh *Actograph) Do(request RequestQuery) (*Result, error) {
 	schema, err := agh.Schema()
 	if err != nil {
-		return nil, fmt.Errorf("when taking schema: %v", err)
+		return nil, fmt.Errorf("when taking schema: %w", err)
 	}
 
 	ctx := request.Context
@@ -449,7 +454,7 @@ func (agh *Actograph) makeDirectives(node ast.Node, directiveDefinitions []*ast.
 		dirArguments := agh.makeDirectiveArguments(directiveUsageDefinition, directiveDefinition)
 		directiveExecutable, err := agh.directiveDeclarations[name].Construct(dirArguments, node)
 		if err != nil {
-			panic(fmt.Errorf("cant construct directive usage for @%s: %v", name, err))
+			panic(fmt.Errorf("cant construct directive usage for @%s: %w", name, err))
 		}
 		directiveExecutables[i] = directiveExecutable
 	}
@@ -477,6 +482,10 @@ func (agh *Actograph) getType(typeDefinition ast.Type) graphql.Type {
 
 	if object, isObject := agh.objects[name]; isObject {
 		return object
+	}
+
+	if union, isUnion := agh.unions[name]; isUnion {
+		return union
 	}
 
 	if inputObject, isInputObject := agh.inputObjects[name]; isInputObject {
@@ -526,6 +535,43 @@ func (agh *Actograph) makeEmptyObjects() {
 			Description: description,
 		})
 		agh.inputObjects[name] = obj
+	}
+
+	for unionName, unionDefinition := range agh.unionDefinitions {
+		unionTypes := make([]*graphql.Object, len(unionDefinition.Types))
+		for i, unionTypeNamed := range unionDefinition.Types {
+			unionType, hasNamedType := agh.objects[unionTypeNamed.Name.Value]
+			if !hasNamedType {
+				panic("unknown union type (should be Named, and this panic should be more self-explainable)")
+			}
+			unionTypes[i] = unionType
+		}
+		var description string
+		if unionDefinition.Description != nil {
+			description = unionDefinition.Description.Value
+		}
+		agh.unions[unionName] = graphql.NewUnion(graphql.UnionConfig{
+			Name:  unionName,
+			Types: unionTypes,
+			// TODO: make it configurable
+			ResolveType: func(p graphql.ResolveTypeParams) *graphql.Object {
+				valueMap, ok := p.Value.(map[string]interface{})
+				if !ok {
+					panic("TODO: only map[string]interface{} supported in union type resolver now")
+				}
+				__typename, ok := valueMap["__typename"]
+				if !ok {
+					panic("TODO: __typename field required for union resolvers in resolved value")
+				}
+				for _, unionType := range unionTypes {
+					if unionType.Name() == __typename {
+						return unionType
+					}
+				}
+				panic("TODO: cant resolve union type")
+			},
+			Description: description,
+		})
 	}
 }
 
@@ -589,6 +635,21 @@ func (agh *Actograph) addScalar(node *ast.ScalarDefinition) {
 	}
 }
 
+func (agh *Actograph) addUnion(node *ast.UnionDefinition) {
+	// TODO: implement union directives when found use cases :)
+	if len(node.Directives) > 0 {
+		panic("directives under scalar is not implemented yet")
+	}
+
+	name := node.Name.Value
+
+	if _, has := agh.unionDefinitions[name]; has {
+		log.Panicf("union with name '%s' already defined", name)
+	}
+
+	agh.unionDefinitions[name] = node
+}
+
 func (agh *Actograph) addExtensionDefinition(node *ast.TypeExtensionDefinition) {
 	name := node.Definition.Name.Value
 	agh.extensionDefinitions[name] = append(agh.extensionDefinitions[name], node)
@@ -620,7 +681,7 @@ func (agh *Actograph) executeDefineDirectives(directives []directive.Directive, 
 	for i, dir := range directives {
 		err = dir.Define(kind, obj)
 		if err != nil {
-			return fmt.Errorf("when executeDefine in directive #%d: %v", i, err)
+			return fmt.Errorf("when executeDefine in directive #%d: %w", i, err)
 		}
 	}
 	return nil
